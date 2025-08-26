@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Adjudicación Residencias</title>
+<style>
+  body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:24px;background:#f7f7f7}
+  .card{background:#fff;border-radius:16px;box-shadow:0 6px 20px rgba(0,0,0,.08);padding:16px;margin:12px 0}
+  .row{display:flex;align-items:center;gap:12px;justify-content:space-between}
+  .name{font-weight:600}
+  button{border:0;border-radius:999px;padding:8px 14px;cursor:pointer}
+  .minus{background:#eee}
+  .plus{background:#eee}
+  .pill{background:#eef;border-radius:999px;padding:2px 10px}
+  progress{width:140px;height:16px}
+</style>
+<body>
+<h1>Adjudicación de residencias</h1>
+<p>Click en + / − para ajustar adjudicaciones. Se guarda solo en este dispositivo.</p>
+
+<div id="app"></div>
+
+<script>
+const STORAGE_KEY = "residencias_v1";
+const initial = [
+  { hospital: "Guti", especialidad: "Pediatría", cupos: 40 },
+  { hospital: "Elizalde", especialidad: "Pediatría",       cupos: 31 },
+  { hospital: "Fernandez", especialidad: "Pediatría",          cupos: 2 },
+  { hospital: "Durand", especialidad: "Pediatría",          cupos: 2 },
+  { hospital: "Otros", especialidad: "Pediatría",          cupos: 80 },
+];
+
+function load(){
+  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || initial.map(x=>({...x, asignados:0})) }
+  catch{ return initial.map(x=>({...x, asignados:0})) }
+}
+function save(data){ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) }
+
+let data = load();
+const app = document.getElementById("app");
+
+function render(){
+  app.innerHTML = "";
+  // Totales
+  const totCupos = data.reduce((s,x)=>s+x.cupos,0);
+  const totAsig  = data.reduce((s,x)=>s+x.asignados,0);
+  const header = document.createElement("div");
+  header.className = "card";
+  header.innerHTML = `<div class="row">
+    <div><strong>Total cupos:</strong> ${totCupos} &nbsp; <strong>Adjudicados:</strong> ${totAsig} &nbsp; <strong>Restantes:</strong> ${Math.max(totCupos-totAsig,0)}</div>
+    <div><button class="minus" id="reset">Reiniciar</button></div>
+  </div>`;
+  app.appendChild(header);
+  header.querySelector("#reset").onclick = ()=>{ data.forEach(x=>x.asignados=0); save(data); render(); };
+
+  data.forEach((it,idx)=>{
+    const restantes = Math.max(it.cupos - it.asignados, 0);
+    const pct = it.cupos ? Math.min(it.asignados/it.cupos,1) : 0;
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="row">
+        <div>
+          <div class="name">${it.hospital}</div>
+          <div>${it.especialidad}</div>
+        </div>
+        <div class="row" style="gap:8px">
+          <span class="pill">Cupos: ${it.cupos}</span>
+          <span class="pill">Asig.: ${it.asignados}</span>
+          <span class="pill">Rest.: ${restantes}</span>
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <progress max="1" value="${pct}"></progress>
+        <div>
+          <button class="minus" data-idx="${idx}" data-delta="-1">−</button>
+          <button class="plus"  data-idx="${idx}" data-delta="+1">+</button>
+        </div>
+      </div>`;
+    app.appendChild(card);
+  });
+
+  app.querySelectorAll("button[data-delta]").forEach(btn=>{
+    btn.onclick = ()=>{
+      const i = +btn.dataset.idx;
+      const d = btn.dataset.delta==="+1" ? 1 : -1;
+      data[i].asignados = Math.max(0, Math.min(data[i].cupos, (data[i].asignados||0)+d));
+      save(data); render();
+    };
+  });
+}
+render();
+</script>
+</body>
+</html>
